@@ -1,3 +1,4 @@
 pics/
 .bmx/
 .DS_Store
+!*.exe
