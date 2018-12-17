@@ -1,4 +1,4 @@
-
+<pre>
 - windows
 bmk makeapp -a -r -g x86 -t console ss3.bmx
 
@@ -24,4 +24,4 @@ options:
         !sprite_width=64
         !sprite_height=64
         !sprite_resize=1
-        
+</pre>        
