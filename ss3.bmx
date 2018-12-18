@@ -80,7 +80,7 @@ Local readtime:Int = (MilliSecs()-time)
 
 If(ssWidth < 1 and ssHeight < 1) ' autogen square texture
     Local size:Int = 128
-    While size <= ssMaxWidth and size <= ssMaxHeight
+    While size < ssMaxWidth and size < ssMaxHeight
         if TPic.DoesFit(size,size) then exit
         size :* 2
     Wend
@@ -127,7 +127,6 @@ Next
 If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
 
 time = MilliSecs()-time
-'TPic.WriteIndex("index.json","~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
 TPic.PrintIndex("~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
 
 
@@ -222,41 +221,6 @@ Type TPic
         Print "],"
         Print meta
         Print "}"
-    End Function
-
-    Function WriteIndex( path:String, meta:String )
-        Local index:TStream = WriteFile(path)
-        Local lastFile:String
-        Local isOpen:Int
-        Local firstComma:String
-        WriteString index,"{"
-        WriteString index,"~qindex~q:["
-        For Local p:TPic = EachIn TPic.list
-
-           If p.destFile <> lastFile
-                firstComma = ""
-                If isOpen
-                    WriteString index,"]"
-                    WriteString index,"}"
-
-                EndIf
-                If isOpen WriteString index,","
-                WriteString index,"{"
-                WriteString index,"~qfilename~q:~q"+p.destFile+"~q,"
-                WriteString index,"~qdata~q:["
-                isOpen = 1
-            EndIf
-            Local s:String = firstComma+"{~qid~q:"+ p.sid +",~qx~q:"+ p.x +",~qy~q:"+ p.y +"}"
-            firstComma = ","
-            WriteString index,s
-            lastFile = p.destFile
-        Next
-        WriteString index,"]"
-        WriteString index,"}"
-
-        WriteString index,"],"
-        WriteString index,meta
-        WriteString index,"}"
     End Function
 
     Method Draw( ss:TPixmap, x:Int, y:Int )
