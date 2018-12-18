@@ -21,6 +21,7 @@ options:
         !sheet_height=0
         !sheet_quality=75
         !sheet_path=
+        !sheet_file_prefix=sheet
         !sprite_width=64
         !sprite_height=64
         !sprite_resize=1

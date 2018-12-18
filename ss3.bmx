@@ -30,6 +30,7 @@ Const docs:String = ..
 "~t!sheet_height=0~n"+..
 "~t!sheet_quality=75~n"+..
 "~t!sheet_path=~n"+..
+"~t!sheet_file_prefix=sheet~n"+..
 "~t!sprite_width=64~n"+..
 "~t!sprite_height=64~n"+..
 "~t!sprite_resize=1~n"+..
@@ -44,6 +45,7 @@ Local ssWidth:Int = 0
 Local ssHeight:Int = 0
 Local ssQuality:Int = 75
 local ssPath:String = ""
+local ssFilePrefix:string = "sheet"
 
 If Not stdinIsEmpty()
     Local a:String
@@ -56,6 +58,7 @@ If Not stdinIsEmpty()
             Local opt$[] = a.split("=")
             'Print "found opt: "+opt[0]
             If opt[0] = "!sheet_path" Then ssPath = String(opt[1])
+            If opt[0] = "!sheet_file_prefix" Then ssFilePrefix = String(opt[1])
             If opt[0] = "!sheet_quality" Then ssQuality = Int(opt[1])
             If opt[0] = "!sheet_max_width" Then ssMaxWidth = Int(opt[1])
             If opt[0] = "!sheet_max_height" Then ssMaxHeight = Int(opt[1])
@@ -97,7 +100,11 @@ Local x:Int = 0
 Local y:Int = 0
 Local i:Int = 0
 Local ds:Int = datestamp()
-Local filename:String = "shot_"+i+"_"+ds+".jpg"
+Local filename:String = ssFilePrefix+"_"+ds+"_"+i+".jpg"
+local path:string = ""
+if(ssPath <> "")
+    path = StripSlash(ssPath) + "/"
+endif
 For Local p:TPic = EachIn TPic.list
     p.destFile = filename
     p.Draw ss,x,y
@@ -107,17 +114,17 @@ For Local p:TPic = EachIn TPic.list
         x = 0
         y = y + p.boxHeight
         If y >= ssHeight
-            SavePixmapJPeg ss,StripSlash(ssPath)+filename,ssQuality
+            SavePixmapJPeg ss,path+filename,ssQuality
             i :+ 1
             x = 0
             y = 0
             ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
-            filename = "shot_"+i+"_"+ds+".jpg"
+            filename = ssFilePrefix+"_"+ds+"_"+i+".jpg"
         EndIf
     EndIf
 Next
 
-If y < ssHeight Then SavePixmapJPeg ss,StripSlash(ssPath)+"/"+filename,ssQuality
+If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
 
 time = MilliSecs()-time
 'TPic.WriteIndex("index.json","~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
