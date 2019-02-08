@@ -25,4 +25,5 @@ options:
         !sprite_width=64
         !sprite_height=64
         !sprite_resize=1
-</pre>        
+        !circle_mask=0
+</pre>

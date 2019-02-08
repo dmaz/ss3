@@ -34,6 +34,7 @@ Const docs:String = ..
 "~t!sprite_width=64~n"+..
 "~t!sprite_height=64~n"+..
 "~t!sprite_resize=1~n"+..
+"~t!circle_mask=0~n"+..
 "~n"
 
 'Incbin "defaultimg.png"
@@ -67,6 +68,7 @@ If Not stdinIsEmpty()
             If opt[0] = "!sprite_width" Then TPic.boxWidth = Int(opt[1])
             If opt[0] = "!sprite_height" Then TPic.boxHeight = Int(opt[1])
             If opt[0] = "!sprite_resize" Then TPic.resize = Int(opt[1])
+            If opt[0] = "!circle_mask" Then TPic.circleMask = Int(opt[1])
         Else
             TPic.Add a
         End If
@@ -151,6 +153,7 @@ Type TPic
     Global boxWidth:Int = 64
     Global boxHeight:Int = 64
     Global resize:Int = 1
+    Global circleMask:Int = 0
     Global defaultImg:TPixmap = LoadPixmap("defaultimg.png")
     'Global defaultImg:TPixmap = LoadPixmap("incbin::defaultimg.png")
 
@@ -227,16 +230,26 @@ Type TPic
         Self.x = x
         Self.y = y
         Self.destFile = destFile
-
+        
+        local maxDist:int = 0
+        if self.circleMask maxDist = min(self.boxHeight/2,self.boxWidth/2) * min(self.boxHeight/2,self.boxWidth/2)
+        
         Local destRect:rect = GetDestRect(1,0)
         If resize Then pixmap = ResizePixmap(pixmap,Int(destRect.w),Int(destRect.h))
         For Local xi:Int = -destRect.x Until boxWidth-destRect.x
             For Local yi:Int = -destRect.y Until boxHeight-destRect.y
+                local dist:int = getSqrDist(float(xi+destRect.x),float(yi+destRect.y),32,32)
+                if maxDist and dist > maxDist then continue
+
                 Local currentData:Byte Ptr = pixmap.PixelPtr(xi,yi)
                 Local newData:Byte Ptr = ss.PixelPtr(xi+Int(destRect.x)+x,yi+Int(destRect.y)+y)
-                newData[0] = currentData[0]
-                newData[1] = currentData[1]
-                newData[2] = currentData[2]
+               
+                local modifier:int = 1
+                if maxDist and dist > maxDist*.98 then modifier = 2
+               
+                newData[0] = currentData[0] / modifier
+                newData[1] = currentData[1] / modifier
+                newData[2] = currentData[2] / modifier
                 newData[3] = currentData[3]
             Next
         Next
@@ -274,5 +287,12 @@ Type TPic
         EndIf
         Return rtnVal
     End Method
+        
+    method getSqrDist:Float( X1:Float, Y1:Float, X2:Float, Y2:Float )
+        Local l1:Float = Abs(x1-x2)
+        Local l2:Float = Abs(y1-y2)
+        Return (l1*l1)+(l2*l2)
+    End Method
+    
 End Type
 
