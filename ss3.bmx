@@ -166,10 +166,12 @@ Type TPic
     Field y:Int
     Field destFile:String
 
-    Function Add:TPic( path:String )
+    Function Add:TPic( data:String )
         Local p:TPic = New TPic
-        p.path = path
-        p.sid = StripAll(p.path)
+        Local opt$[] = data.split(",")
+
+        p.path = opt[0]
+        if opt.length>1 then p.sid = opt[1].trim() else p.sid = StripAll(p.path)
 
         If Not Len(p.sid) Then Return Null
         
