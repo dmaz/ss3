@@ -180,7 +180,7 @@ Type TPic
         If Not Len(p.sid) Then Return Null
         
         If FileType(p.path)=1
-            p.pixmap = LoadPixmap(p.path)
+            'p.pixmap = LoadPixmap(p.path)
         Else
             If Not defaultImg
                 Return Null
@@ -236,6 +236,11 @@ Type TPic
         Self.x = x
         Self.y = y
         Self.destFile = destFile
+        local pixmap:TPixmap = self.pixmap
+        
+        if not pixmap
+            pixmap = LoadPixmap(path)
+        endif
         
         local maxDist:int = 0
         if self.circleMask maxDist = min(self.boxHeight/2,self.boxWidth/2) * min(self.boxHeight/2,self.boxWidth/2)
