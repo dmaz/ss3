@@ -48,89 +48,93 @@ Local ssQuality:Int = 75
 local ssPath:String = ""
 local ssFilePrefix:string = "sheet"
 
-If Not stdinIsEmpty()
-    Local a:String
-    Repeat
-        a = readStdinLine()
-        If Not a Then Exit
-        a = a.Trim()
+try
+    If Not stdinIsEmpty()
+        Local a:String
+        Repeat
+            a = readStdinLine()
+            If Not a Then Exit
+            a = a.Trim()
 
-        If a[0] = Asc("!") Then
-            Local opt$[] = a.split("=")
-            'Print "found opt: "+opt[0]
-            If opt[0] = "!sheet_path" Then ssPath = String(opt[1])
-            If opt[0] = "!sheet_file_prefix" Then ssFilePrefix = String(opt[1])
-            If opt[0] = "!sheet_quality" Then ssQuality = Int(opt[1])
-            If opt[0] = "!sheet_max_width" Then ssMaxWidth = Int(opt[1])
-            If opt[0] = "!sheet_max_height" Then ssMaxHeight = Int(opt[1])
-            If opt[0] = "!sheet_width" Then ssWidth = Int(opt[1])
-            If opt[0] = "!sheet_height" Then ssHeight = Int(opt[1])
-            If opt[0] = "!sprite_width" Then TPic.boxWidth = Int(opt[1])
-            If opt[0] = "!sprite_height" Then TPic.boxHeight = Int(opt[1])
-            If opt[0] = "!sprite_resize" Then TPic.resize = Int(opt[1])
-            If opt[0] = "!circle_mask" Then TPic.circleMask = Int(opt[1])
-        Else
-            TPic.Add a
-        End If
+            If a[0] = Asc("!") Then
+                Local opt$[] = a.split("=")
+                'Print "found opt: "+opt[0]
+                If opt[0] = "!sheet_path" Then ssPath = String(opt[1])
+                If opt[0] = "!sheet_file_prefix" Then ssFilePrefix = String(opt[1])
+                If opt[0] = "!sheet_quality" Then ssQuality = Int(opt[1])
+                If opt[0] = "!sheet_max_width" Then ssMaxWidth = Int(opt[1])
+                If opt[0] = "!sheet_max_height" Then ssMaxHeight = Int(opt[1])
+                If opt[0] = "!sheet_width" Then ssWidth = Int(opt[1])
+                If opt[0] = "!sheet_height" Then ssHeight = Int(opt[1])
+                If opt[0] = "!sprite_width" Then TPic.boxWidth = Int(opt[1])
+                If opt[0] = "!sprite_height" Then TPic.boxHeight = Int(opt[1])
+                If opt[0] = "!sprite_resize" Then TPic.resize = Int(opt[1])
+                If opt[0] = "!circle_mask" Then TPic.circleMask = Int(opt[1])
+            Else
+                TPic.Add a
+            End If
 
-    Forever
-Else
-    Print docs
-    End
-EndIf
-Local readtime:Int = (MilliSecs()-time)
-
-If(ssWidth < 1 and ssHeight < 1) ' autogen square texture
-    Local size:Int = 128
-    While size < ssMaxWidth and size < ssMaxHeight
-        if TPic.DoesFit(size,size) then exit
-        size :* 2
-    Wend
-    ssWidth = size
-    ssHeight = size
-elseif(ssWidth>0 and ssHeight<1) ' autogen height based on width
-    local h:int = 128
-    while h <= ssMaxHeight
-        if TPic.DoesFit(ssWidth,h) then exit
-        h :+ TPic.boxHeight
-    wend
-    ssHeight = h
-EndIf
-Local ss:TPixmap = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
-
-Local x:Int = 0
-Local y:Int = 0
-Local i:Int = 0
-Local ds:Int = datestamp()
-Local filename:String = ssFilePrefix+"_"+ds+"_"+i+".jpg"
-local path:string = ""
-if(ssPath <> "")
-    path = StripSlash(ssPath) + "/"
-endif
-For Local p:TPic = EachIn TPic.list
-    p.destFile = filename
-    p.Draw ss,x,y
-
-    x = x + p.boxWidth
-    If x >= ssWidth
-        x = 0
-        y = y + p.boxHeight
-        If y >= ssHeight
-            SavePixmapJPeg ss,path+filename,ssQuality
-            i :+ 1
-            x = 0
-            y = 0
-            ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
-            filename = ssFilePrefix+"_"+ds+"_"+i+".jpg"
-        EndIf
+        Forever
+    Else
+        Print docs
+        End
     EndIf
-Next
+    Local readtime:Int = (MilliSecs()-time)
 
-If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
+    If(ssWidth < 1 and ssHeight < 1) ' autogen square texture
+        Local size:Int = 128
+        While size < ssMaxWidth and size < ssMaxHeight
+            if TPic.DoesFit(size,size) then exit
+            size :* 2
+        Wend
+        ssWidth = size
+        ssHeight = size
+    elseif(ssWidth>0 and ssHeight<1) ' autogen height based on width
+        local h:int = 128
+        while h <= ssMaxHeight
+            if TPic.DoesFit(ssWidth,h) then exit
+            h :+ TPic.boxHeight
+        wend
+        ssHeight = h
+    EndIf
+    Local ss:TPixmap = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
 
-time = MilliSecs()-time
-TPic.PrintIndex("~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
+    Local x:Int = 0
+    Local y:Int = 0
+    Local i:Int = 0
+    Local ds:Int = datestamp()
+    Local filename:String = ssFilePrefix+"_"+ds+"_"+i+".jpg"
+    local path:string = ""
+    if(ssPath <> "")
+        path = StripSlash(ssPath) + "/"
+    endif
+    For Local p:TPic = EachIn TPic.list
+        p.destFile = filename
+        p.Draw ss,x,y
 
+        x = x + p.boxWidth
+        If x >= ssWidth
+            x = 0
+            y = y + p.boxHeight
+            If y >= ssHeight
+                SavePixmapJPeg ss,path+filename,ssQuality
+                i :+ 1
+                x = 0
+                y = 0
+                ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
+                filename = ssFilePrefix+"_"+ds+"_"+i+".jpg"
+            EndIf
+        EndIf
+    Next
+
+    If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
+
+    time = MilliSecs()-time
+    TPic.PrintIndex("~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
+
+catch ex:Object
+    print "{~qsuccess~q:false,~n~qmsg~q:~q"+ex.ToString()+"~q}"
+end try
 
 Type rect
     Field x:Double
