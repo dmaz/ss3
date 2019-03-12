@@ -7,6 +7,7 @@ Import BRL.LinkedList
 Import BRL.FileSystem
 Import BRL.StandardIO
 Import BRL.RamStream
+'Import BaH.FreeImage
 
 Import "datestamp.c"
 Import "standardin.c"
@@ -48,6 +49,8 @@ Local ssQuality:Int = 75
 local ssPath:String = ""
 local ssFilePrefix:string = "sheet"
 
+print "{"
+
 try
     If Not stdinIsEmpty()
         Local a:String
@@ -80,6 +83,12 @@ try
         End
     EndIf
     Local readtime:Int = (MilliSecs()-time)
+    'comment "added all sprites"
+
+        'local ip:TPixmap
+        'ip.writePixel(100,100,255)
+
+
 
     If(ssWidth < 1 and ssHeight < 1) ' autogen square texture
         Local size:Int = 128
@@ -118,16 +127,21 @@ try
             y = y + p.boxHeight
             If y >= ssHeight
                 SavePixmapJPeg ss,path+filename,ssQuality
+                'TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_JPEG,ssQuality
+                'TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_PNG
                 i :+ 1
                 x = 0
                 y = 0
                 ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
+                'comment "creating new sheet"
                 filename = ssFilePrefix+"_"+ds+"_"+i+".jpg"
             EndIf
         EndIf
     Next
 
     If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
+    'If x > 0 or y > 0 Then TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_JPEG,ssQuality
+    'If x > 0 or y > 0 Then TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_PNG
 
     time = MilliSecs()-time
     TPic.PrintIndex("~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
@@ -135,6 +149,10 @@ try
 catch ex:Object
     print "{~qsuccess~q:false,~n~qmsg~q:~q"+ex.ToString()+"~q}"
 end try
+
+function comment(txt:string)
+    print "~qcomment~q:~q"+txt+"~q,"
+end function
 
 Type rect
     Field x:Double
@@ -180,7 +198,7 @@ Type TPic
         If Not Len(p.sid) Then Return Null
         
         If FileType(p.path)=1
-            'p.pixmap = LoadPixmap(p.path)
+            p.pixmap = LoadPixmap(p.path)
         Else
             If Not defaultImg
                 Return Null
@@ -202,7 +220,7 @@ Type TPic
         Local lastFile:String
         Local isOpen:Int
         Local firstComma:String
-        Print "{"
+        'Print "{"
         Print "~qindex~q:["
         For Local p:TPic = EachIn TPic.list
 
@@ -219,7 +237,8 @@ Type TPic
                 Print "~qdata~q:["
                 isOpen = 1
             EndIf
-            Local s:String = firstComma+"{~qid~q:"+ p.sid +",~qx~q:"+ p.x +",~qy~q:"+ p.y +"}"
+            local error:string = ""
+            Local s:String = firstComma+"{~qid~q:"+ p.sid +",~qx~q:"+ p.x +",~qy~q:"+ p.y +error+ "}"
             firstComma = ","
             Print s
             lastFile = p.destFile
@@ -233,13 +252,18 @@ Type TPic
     End Function
 
     Method Draw( ss:TPixmap, x:Int, y:Int )
+        'comment "Draw"
         Self.x = x
         Self.y = y
         Self.destFile = destFile
         local pixmap:TPixmap = self.pixmap
-        
-        if not pixmap
+
+        if Not pixmap
             pixmap = LoadPixmap(path)
+            if Not pixmap
+                comment "load failed: "+path
+                pixmap = defaultImg
+            endif
         endif
         
         local maxDist:int = 0
@@ -247,26 +271,50 @@ Type TPic
         
         Local destRect:rect = GetDestRect(1,0)
         If resize Then pixmap = ResizePixmap(pixmap,Int(destRect.w),Int(destRect.h))
+        'comment "after ResizePixmap"
+
         For Local xi:Int = -destRect.x Until boxWidth-destRect.x
             For Local yi:Int = -destRect.y Until boxHeight-destRect.y
-                local dist:int = getSqrDist(float(xi+destRect.x),float(yi+destRect.y),32,32)
-                if maxDist and dist > maxDist then continue
+                if(xi<0 or yi<0 or xi>=pixmap.width or yi>=pixmap.height)
+                    comment "src pixel coords out of bounds "+xi+":"+yi
+                    continue
+                endif
+
+                local dxi:int = xi+Int(destRect.x)+x
+                local dyi:int = yi+Int(destRect.y)+y
+                if(dxi<0 or dyi<0 or dxi>=ss.width or dyi>=ss.height)
+                    comment "dest pixel coords out of bounds "+dxi+":"+dyi
+                    continue
+                endif
 
                 Local currentData:Byte Ptr = pixmap.PixelPtr(xi,yi)
-                Local newData:Byte Ptr = ss.PixelPtr(xi+Int(destRect.x)+x,yi+Int(destRect.y)+y)
+                Local newData:Byte Ptr = ss.PixelPtr(dxi,dyi)
+                newData[0] = currentData[0]
+                newData[1] = currentData[1]
+                newData[2] = currentData[2]
+        '        newData[3] = currentData[3]
+        '        local dist:int = getSqrDist(float(xi+destRect.x),float(yi+destRect.y),32,32)
+        '        if maxDist and dist > maxDist then continue
+
+        '        Local currentData:Byte Ptr = pixmap.PixelPtr(xi,yi)
+        '        Local newData:Byte Ptr = ss.PixelPtr(xi+Int(destRect.x)+x,yi+Int(destRect.y)+y)
                
-                local modifier:int = 1
-                if maxDist and dist > maxDist*.98 then modifier = 2
+        '        local modifier:int = 1
+        '        if maxDist and dist > maxDist*.98 then modifier = 2
                
-                newData[0] = currentData[0] / modifier
-                newData[1] = currentData[1] / modifier
-                newData[2] = currentData[2] / modifier
-                newData[3] = currentData[3]
+        '        newData[0] = currentData[0] / modifier
+        '        newData[1] = currentData[1] / modifier
+        '        newData[2] = currentData[2] / modifier
+        '        newData[3] = currentData[3] 
+        '        'newData[3] = 255 
             Next
         Next
+        'comment "after place"
+        pixmap = null
     End Method
 
     Method GetDestRect:rect( centerFill:Int, skip:Int )
+        'comment "start GetDestRect"
         Local rtnVal:rect = New rect
         rtnVal.set(0,0,boxWidth,boxHeight)
         If skip Return rtnVal
@@ -296,6 +344,7 @@ Type TPic
                 rtnVal.set(0,0,Int(containerWidth), Int(imgHeight * containerWidth / imgWidth))
             EndIf
         EndIf
+        'comment "end GetDestRect"
         Return rtnVal
     End Method
         
