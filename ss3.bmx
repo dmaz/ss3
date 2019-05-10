@@ -7,6 +7,7 @@ Import BRL.LinkedList
 Import BRL.FileSystem
 Import BRL.StandardIO
 Import BRL.RamStream
+Import BRL.Threads
 'Import BaH.FreeImage
 
 Import "datestamp.c"
@@ -82,6 +83,25 @@ try
         Print docs
         End
     EndIf
+
+    'local threads:int
+    'Repeat
+    '    delay 100
+    '    threads = 0
+    '    For Local p:TPic = EachIn TPic.list
+    '        if p.loaded = 0 then threads :+ 1
+    '    Next
+    '    comment threads
+    'Until threads <= 0
+
+    local ti:int 
+    for local p:TPic = EachIn TPic.list
+        comment ti
+        if p.thread then WaitThread p.thread
+        ti :+ 1
+    Next
+    
+
     Local readtime:Int = (MilliSecs()-time)
     'comment "added all sprites"
 
@@ -168,6 +188,11 @@ Type rect
     End Method
 End Type
 
+Function ThreadedLoad:Object(data:Object)
+    local p:TPic = TPic(data)
+    p.pixmap = LoadPixmap(p.path)
+    p.loaded = 1
+End Function
 
 Type TPic
     Global list:TList = New TList
@@ -187,6 +212,8 @@ Type TPic
     Field x:Int
     Field y:Int
     Field destFile:String
+    field thread:TThread
+    field loaded:Int = 0
 
     Function Add:TPic( data:String )
         Local p:TPic = New TPic
@@ -198,7 +225,8 @@ Type TPic
         If Not Len(p.sid) Then Return Null
         
         If FileType(p.path)=1
-            p.pixmap = LoadPixmap(p.path)
+            'p.pixmap = LoadPixmap(p.path)
+            p.thread = CreateThread(ThreadedLoad,p)
         Else
             If Not defaultImg
                 Return Null
