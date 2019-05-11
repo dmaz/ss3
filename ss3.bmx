@@ -50,11 +50,13 @@ Local ssQuality:Int = 75
 local ssPath:String = ""
 local ssFilePrefix:string = "sheet"
 
-print "{"
+local workers:TWorkers
 
 try
     If Not stdinIsEmpty()
         Local a:String
+        print "{"
+
         Repeat
             a = readStdinLine()
             If Not a Then Exit
@@ -74,8 +76,11 @@ try
                 If opt[0] = "!sprite_height" Then TPic.boxHeight = Int(opt[1])
                 If opt[0] = "!sprite_resize" Then TPic.resize = Int(opt[1])
                 If opt[0] = "!circle_mask" Then TPic.circleMask = Int(opt[1])
+                If opt[0] = "!read_workers" Then TWorkers.count = Int(opt[1])
             Else
-                TPic.Add a
+                if Not workers then workers = new TWorkers
+                local p:TPic = TPic.Add(a)
+                if p then workers.Add p
             End If
 
         Forever
@@ -84,23 +89,21 @@ try
         End
     EndIf
 
-    'local threads:int
-    'Repeat
-    '    delay 100
-    '    threads = 0
-    '    For Local p:TPic = EachIn TPic.list
-    '        if p.loaded = 0 then threads :+ 1
-    '    Next
-    '    comment threads
-    'Until threads <= 0
+    'TPic.StartWorkers
 
-    local ti:int 
-    for local p:TPic = EachIn TPic.list
-        comment ti
-        if p.thread then WaitThread p.thread
-        ti :+ 1
-    Next
+    'local ti:int 
+    'for local p:TPic = EachIn TPic.list
+    '    comment ti
+    '    if p.thread then WaitThread p.thread
+    '    ti :+ 1
+    'Next
+
+    'for local t:int = 0 until TPic.workerCount
+    '    if TPic.threads[t] then WaitThread TPic.threads[t]
+    'next
     
+    workers.Start
+    workers.Wait
 
     Local readtime:Int = (MilliSecs()-time)
     'comment "added all sprites"
@@ -191,8 +194,57 @@ End Type
 Function ThreadedLoad:Object(data:Object)
     local p:TPic = TPic(data)
     p.pixmap = LoadPixmap(p.path)
-    p.loaded = 1
 End Function
+
+Function WorkerLoad:Object(data:Object)
+    local list:TList = TList(data)
+    comment "worker has " + list.Count() + " items"
+    for local p:TPic = EachIn list
+        If FileType(p.path)=1
+            p.pixmap = LoadPixmap(p.path)
+        Else
+            If Not p.defaultImg
+                print "Error: no default pic"
+            EndIf
+            p.pixmap = p.defaultImg
+        EndIf
+    next
+End Function
+
+Type TWorkers
+    global count:int = 5
+    field current:int = 0
+    field list:TList[]
+    field threads:TThread[]
+
+    Method New()
+        if list.length < 1
+            list = New TList[count]
+            threads = New TThread[count]
+            for local i:int = 0 until list.length
+                list[i] = New TList
+            next
+        endif
+    End Method
+
+    Method Add(item:Object)
+        list[current].AddLast(item)
+        current :+ 1
+        if current >= list.length then current = 0
+    End Method
+    
+    Method Start()
+        For Local i:int = 0 until list.length
+            threads[i] = CreateThread(WorkerLoad,list[i])
+        Next
+    End Method
+
+    Method Wait()
+        For Local i:int = 0 until list.length
+            if threads[i] then WaitThread threads[i]
+        Next
+    End Method
+End Type
 
 Type TPic
     Global list:TList = New TList
@@ -213,7 +265,6 @@ Type TPic
     Field y:Int
     Field destFile:String
     field thread:TThread
-    field loaded:Int = 0
 
     Function Add:TPic( data:String )
         Local p:TPic = New TPic
@@ -224,15 +275,15 @@ Type TPic
 
         If Not Len(p.sid) Then Return Null
         
-        If FileType(p.path)=1
-            'p.pixmap = LoadPixmap(p.path)
-            p.thread = CreateThread(ThreadedLoad,p)
-        Else
-            If Not defaultImg
-                Return Null
-            EndIf
-            p.pixmap = defaultImg
-        EndIf
+        'If FileType(p.path)=1
+        '    'p.pixmap = LoadPixmap(p.path)
+        '    p.thread = CreateThread(ThreadedLoad,p)
+        'Else
+        '    If Not defaultImg
+        '        Return Null
+        '    EndIf
+        '    p.pixmap = defaultImg
+        'EndIf
 
         p.link = list.AddLast(p)
         TPic.count = TPic.count + 1
