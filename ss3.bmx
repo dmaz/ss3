@@ -106,7 +106,8 @@ try
     workers.Wait
 
     Local readtime:Int = (MilliSecs()-time)
-    'comment "added all sprites"
+    'print "readtime: "+readtime
+    'end
 
         'local ip:TPixmap
         'ip.writePixel(100,100,255)
