@@ -6,6 +6,7 @@ Import BRL.JPGLoader
 Import BRL.LinkedList
 Import BRL.FileSystem
 Import BRL.StandardIO
+Import BRL.Stream
 Import BRL.RamStream
 Import BRL.Threads
 'Import BaH.FreeImage
@@ -37,9 +38,11 @@ Const docs:String = ..
 "~t!sprite_height=64~n"+..
 "~t!sprite_resize=1~n"+..
 "~t!circle_mask=0~n"+..
+"~t!read_workers=5~n"+..
 "~n"
 
 'Incbin "defaultimg.png"
+global mainFn:string = "logs/ss3main."+currentThread().toString()
 
 Local time:Int = MilliSecs()
 Local ssMaxWidth:Int = 2048
@@ -89,29 +92,12 @@ try
         End
     EndIf
 
-    'TPic.StartWorkers
-
-    'local ti:int 
-    'for local p:TPic = EachIn TPic.list
-    '    comment ti
-    '    if p.thread then WaitThread p.thread
-    '    ti :+ 1
-    'Next
-
-    'for local t:int = 0 until TPic.workerCount
-    '    if TPic.threads[t] then WaitThread TPic.threads[t]
-    'next
     
-    workers.Start
-    workers.Wait
+    'workers.Start
+    'workers.Wait
 
-    Local readtime:Int = (MilliSecs()-time)
-    'print "readtime: "+readtime
-    'end
-
-        'local ip:TPixmap
-        'ip.writePixel(100,100,255)
-
+    'Local readtime:Int = (MilliSecs()-time)
+    'logit mainFn, "reads complete"
 
 
     If(ssWidth < 1 and ssHeight < 1) ' autogen square texture
@@ -131,6 +117,15 @@ try
         ssHeight = h
     EndIf
     Local ss:TPixmap = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
+    if not ss or ss.pixels = 0 die "memory allocation failure 1"
+
+
+    workers.Start
+    workers.Wait
+
+    Local readtime:Int = (MilliSecs()-time)
+    logit mainFn, "reads complete"
+
 
     Local x:Int = 0
     Local y:Int = 0
@@ -143,7 +138,8 @@ try
     endif
     For Local p:TPic = EachIn TPic.list
         p.destFile = filename
-        p.Draw ss,x,y
+        if not p.Draw(ss,x,y) then continue
+        p.pixmap = null
 
         x = x + p.boxWidth
         If x >= ssWidth
@@ -151,21 +147,30 @@ try
             y = y + p.boxHeight
             If y >= ssHeight
                 SavePixmapJPeg ss,path+filename,ssQuality
+                deleteFile path+filename
                 'TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_JPEG,ssQuality
                 'TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_PNG
                 i :+ 1
                 x = 0
                 y = 0
-                ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
-                'comment "creating new sheet"
+                'ss = CreatePixmap(ssWidth,ssHeight,PF_RGBA8888)
+                'if not ss or ss.pixels = 0 die "memory allocation failure"
+                ss.clearPixels 0
                 filename = ssFilePrefix+"_"+ds+"_"+i+".jpg"
             EndIf
         EndIf
     Next
 
+    'comment "ss", ss.width + " : " + ss.height
+    'comment "window height", y+TPic.boxHeight+1
+    If y > 0 then ss = PixmapWindow(ss,0,0,ss.width,y+TPic.boxHeight)
     If x > 0 or y > 0 Then SavePixmapJPeg ss,path+filename,ssQuality
+    deleteFile path+filename
     'If x > 0 or y > 0 Then TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_JPEG,ssQuality
     'If x > 0 or y > 0 Then TFreeImage.CreateFromPixmap(ss).convertTo24Bits().save path+filename,FIF_PNG
+
+    comment "items_no_pic",TPic.noPic
+    comment "total_items",TPic.count
 
     time = MilliSecs()-time
     TPic.PrintIndex("~n~qread_time~q:"+readtime+",~n~qtotal_time~q:"+time)
@@ -174,8 +179,30 @@ catch ex:Object
     print "{~qsuccess~q:false,~n~qmsg~q:~q"+ex.ToString()+"~q}"
 end try
 
-function comment(txt:string)
-    print "~qcomment~q:~q"+txt+"~q,"
+deleteFile mainFn
+
+function die(val:string)
+    comment "die", val
+    end
+end function
+
+function comment(label:string, val:string)
+    print "~q"+label+"~q:~q"+val+"~q,"
+end function
+function comment(label:string, val:int)
+    print "~q"+label+"~q:"+val+","
+end function
+
+function logit(url:string, text:string, offset:int=0)
+    If Not FileType(url)
+        Local n:TStream = WriteStream(url)
+        CloseStream n
+    End If
+    local out:TStream = OpenStream(url,1,1)
+    if not out then runtimeError "failed to open "+url
+    out.seek offset,SEEK_END_
+    writeline out,text
+    closestream out
 end function
 
 Type rect
@@ -192,24 +219,28 @@ Type rect
     End Method
 End Type
 
-Function ThreadedLoad:Object(data:Object)
-    local p:TPic = TPic(data)
-    p.pixmap = LoadPixmap(p.path)
-End Function
-
 Function WorkerLoad:Object(data:Object)
     local list:TList = TList(data)
-    comment "worker has " + list.Count() + " items"
+    local total:int = list.Count()
+    local fn:string = "logs/ss3."+currentThread().toString()
+    
     for local p:TPic = EachIn list
         If FileType(p.path)=1
+            logit fn, total+": "+p.path
             p.pixmap = LoadPixmap(p.path)
-        Else
-            If Not p.defaultImg
-                print "Error: no default pic"
-            EndIf
-            p.pixmap = p.defaultImg
+            if p.pixmap and p.pixmap.width > 0
+                logit fn, " - ok - "+p.pixmap.width, -2
+            else if p.pixmap
+                logit fn, " - empty", -2
+            else
+                logit fn, " - null", -2
+                logit fn, "error: memory allocation failure"
+                exit
+            endif
         EndIf
+        total :- 1
     next
+    deleteFile fn
 End Function
 
 Type TWorkers
@@ -236,6 +267,7 @@ Type TWorkers
     
     Method Start()
         For Local i:int = 0 until list.length
+            comment "worker"+i+"_item_count",list[i].Count()
             threads[i] = CreateThread(WorkerLoad,list[i])
         Next
     End Method
@@ -255,6 +287,8 @@ Type TPic
     Global resize:Int = 1
     Global circleMask:Int = 0
     Global defaultImg:TPixmap = LoadPixmap("defaultimg.png")
+    Global defaultRec:TPic = null
+    Global noPic:int = 0
     'Global defaultImg:TPixmap = LoadPixmap("incbin::defaultimg.png")
 
 
@@ -276,16 +310,6 @@ Type TPic
 
         If Not Len(p.sid) Then Return Null
         
-        'If FileType(p.path)=1
-        '    'p.pixmap = LoadPixmap(p.path)
-        '    p.thread = CreateThread(ThreadedLoad,p)
-        'Else
-        '    If Not defaultImg
-        '        Return Null
-        '    EndIf
-        '    p.pixmap = defaultImg
-        'EndIf
-
         p.link = list.AddLast(p)
         TPic.count = TPic.count + 1
 
@@ -331,19 +355,22 @@ Type TPic
         Print "}"
     End Function
 
-    Method Draw( ss:TPixmap, x:Int, y:Int )
-        'comment "Draw"
+    Method Draw:Int( ss:TPixmap, x:Int, y:Int )
         Self.x = x
         Self.y = y
         Self.destFile = destFile
-        local pixmap:TPixmap = self.pixmap
 
         if Not pixmap
-            pixmap = LoadPixmap(path)
-            if Not pixmap
-                comment "load failed: "+path
+            noPic :+ 1
+            'if not defaultRec
                 pixmap = defaultImg
-            endif
+            '    defaultRec = Self
+            'else
+            '    Self.x = defaultRec.x
+            '    Self.y = defaultRec.y
+            '    Self.destFile = defaultRec.destFile
+            '    return false
+            'endif
         endif
         
         local maxDist:int = 0
@@ -351,19 +378,18 @@ Type TPic
         
         Local destRect:rect = GetDestRect(1,0)
         If resize Then pixmap = ResizePixmap(pixmap,Int(destRect.w),Int(destRect.h))
-        'comment "after ResizePixmap"
 
         For Local xi:Int = -destRect.x Until boxWidth-destRect.x
             For Local yi:Int = -destRect.y Until boxHeight-destRect.y
                 if(xi<0 or yi<0 or xi>=pixmap.width or yi>=pixmap.height)
-                    comment "src pixel coords out of bounds "+xi+":"+yi
+                    comment "warning","src pixel coords out of bounds "+xi+":"+yi
                     continue
                 endif
 
                 local dxi:int = xi+Int(destRect.x)+x
                 local dyi:int = yi+Int(destRect.y)+y
                 if(dxi<0 or dyi<0 or dxi>=ss.width or dyi>=ss.height)
-                    comment "dest pixel coords out of bounds "+dxi+":"+dyi
+                    comment "warning","dest pixel coords out of bounds "+dxi+":"+dyi
                     continue
                 endif
 
@@ -389,12 +415,11 @@ Type TPic
         '        'newData[3] = 255 
             Next
         Next
-        'comment "after place"
-        pixmap = null
+
+        return true
     End Method
 
     Method GetDestRect:rect( centerFill:Int, skip:Int )
-        'comment "start GetDestRect"
         Local rtnVal:rect = New rect
         rtnVal.set(0,0,boxWidth,boxHeight)
         If skip Return rtnVal
@@ -424,7 +449,7 @@ Type TPic
                 rtnVal.set(0,0,Int(containerWidth), Int(imgHeight * containerWidth / imgWidth))
             EndIf
         EndIf
-        'comment "end GetDestRect"
+
         Return rtnVal
     End Method
         
